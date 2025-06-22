@@ -24,27 +24,33 @@ app.use(passport.initialize());
 // Create HTTP server
 const server = http.createServer(app);
 
+// Define allowed origins
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'https://she-learns.vercel.app'
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Initialize Socket.IO
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true
-  },
+  cors: corsOptions,
   path: '/socket.io',
   transports: ['websocket', 'polling']
 });
 
-const allowedOrigin = 'http://localhost:5173'; // Your Vite frontend
-
-app.use(cors({
-  origin: allowedOrigin,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
