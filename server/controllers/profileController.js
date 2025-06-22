@@ -40,7 +40,7 @@ exports.uploadAvatar = (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded.' });
   }
-  const url = `${req.protocol}://${req.get('host')}/public/avatars/${req.file.filename}`;
+  const url = `https://shelearns.onrender.com/public/avatars/${req.file.filename}`;
   res.json({ url });
 };
 

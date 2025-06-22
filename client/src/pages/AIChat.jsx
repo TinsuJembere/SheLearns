@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown'; // ✅ Import react-markdown
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 function AIChat() {
   const [conversations, setConversations] = useState([]);
@@ -179,7 +180,8 @@ function AIChat() {
         <aside className="w-72 flex-shrink-0 hidden md:flex flex-col gap-4 pr-2">
           <button 
             onClick={createNewChat}
-            className="bg-yellow-400 text-white font-semibold px-4 py-2 rounded mb-2 hover:bg-yellow-500 transition"
+            disabled={!user}
+            className="bg-yellow-400 text-white font-semibold px-4 py-2 rounded mb-2 hover:bg-yellow-500 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             + New Chat
           </button>
@@ -187,7 +189,11 @@ function AIChat() {
             <div className="p-2">
               <div className="font-semibold text-gray-700 mb-2 px-2">Recent Conversations</div>
               <ul className="flex flex-col gap-1">
-                {conversations.length === 0 ? (
+                {!user ? (
+                  <li className="px-3 py-2 text-sm text-gray-500 italic">
+                    Please <Link to="/login" className="underline text-yellow-600 hover:text-yellow-800">log in</Link> to view and start conversations.
+                  </li>
+                ) : conversations.length === 0 ? (
                   <li className="px-3 py-2 text-sm text-gray-500 italic">
                     No conversations yet
                   </li>
@@ -272,24 +278,26 @@ function AIChat() {
             )}
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSend} className="flex gap-2 border-t px-6 py-4 bg-white">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask SheLearns anything..."
-              className="flex-1 border rounded px-3 py-2"
-              disabled={loading || !user}
-            />
-            <button
-              type="submit"
-              className="bg-yellow-400 text-white px-4 py-2 rounded hover:bg-yellow-500 transition"
-              disabled={loading || !input.trim() || !user}
-            >
-              <span className="font-bold">&rarr;</span>
-            </button>
-          </form>
+          {/* Chat Input */}
+          <div className="border-t px-6 py-4">
+            <form onSubmit={handleSend} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={user ? "Ask me anything..." : "Please log in to start chatting"}
+                className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:bg-gray-100"
+                disabled={!user || loading}
+              />
+              <button
+                type="submit"
+                className="bg-yellow-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={!user || loading || !input.trim()}
+              >
+                Send
+              </button>
+            </form>
+          </div>
 
           {/* Disclaimer */}
           <div className="px-6 py-2 text-xs text-gray-400 border-t bg-gray-50">
