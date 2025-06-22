@@ -45,7 +45,7 @@ function BlogList() {
     fetchBlogs();
 
     // WebSocket connection
-    const socket = io('http://localhost:5000', {
+    const socket = io('https://shelearns.onrender.com', {
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,

@@ -114,7 +114,7 @@ function Login() {
           </div>
           <div className="text-center">
             <a
-              href="http://localhost:5000/api/auth/google"
+              href="https://shelearns.onrender.com/api/auth/google"
               className="w-full text-black border-1 font-bold py-2 px-4 rounded inline-flex items-center justify-center space-x-2"
             >
               <FcGoogle />

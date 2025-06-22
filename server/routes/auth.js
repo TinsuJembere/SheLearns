@@ -97,7 +97,7 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/login', session: false }),
   (req, res) => {
     const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?token=${token}`);
+    res.redirect(`${process.env.CLIENT_URL || 'https://she-learns.vercel.app'}/auth/callback?token=${token}`);
   }
 );
 

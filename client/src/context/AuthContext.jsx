@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 // Configure axios with base URL
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = 'https://shelearns.onrender.com';
 axios.defaults.withCredentials = true;
 
 const AuthContext = createContext();
