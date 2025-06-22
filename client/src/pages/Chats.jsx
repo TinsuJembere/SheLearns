@@ -130,7 +130,7 @@ export default function Chats() {
   const chatWindowData = selectedChat
     ? {
         name: isSelfChat ? 'Saved Messages' : (other?.name || 'Unknown'),
-        avatar: isSelfChat ? (user.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg') : (other?.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg'),
+        avatar: isSelfChat ? (user.avatar || '/avatar.jpg') : (other?.avatar || '/avatar'),
         role: isSelfChat ? 'You' : (other?.role || ''),
         messages: messages.map((msg) => {
           const senderId = msg.sender?._id || msg.sender;
@@ -238,7 +238,7 @@ export default function Chats() {
                       className="flex items-center gap-2 px-3 py-2 hover:bg-yellow-50 cursor-pointer"
                       onClick={() => handleStartChat(u._id)}
                     >
-                      <img src={u.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg'} alt={u.name} className="w-7 h-7 rounded-full object-cover" />
+                      <img src={u.avatar || '/avatar.jpg'} alt={u.name} className="w-7 h-7 rounded-full object-cover" />
                       <span className="font-medium text-gray-900">{u._id === user._id ? 'Saved Messages (You)' : u.name}</span>
                       <span className="text-xs text-gray-500">{u.email}</span>
                     </li>
@@ -249,7 +249,7 @@ export default function Chats() {
             {loadingConvs ? (
               <div className="text-gray-400 text-center flex-1 flex items-center justify-center">Loading...</div>
             ) : error ? (
-              <div className="text-red-500 text-center flex-1 flex items-center justify-center">{error}</div>
+              <div className="text-red-500 text-center flex-1 flex items-center justify-center">{error} login or sign up first</div>
             ) : (
               <ul className="flex-1 overflow-y-auto divide-y divide-gray-50">
                 {sidebarConvs.map((conv) => (
