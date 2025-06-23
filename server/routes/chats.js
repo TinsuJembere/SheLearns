@@ -20,6 +20,6 @@ router.post('/:id/read', protect, markAsRead);
 router.post('/:id/messages', protect, sendMessage);
 router.put('/:id/messages/:messageId', protect, editMessage);
 router.delete('/:id/messages/:messageId', protect, deleteMessage);
-router.post('/:id/files', protect, upload.single('file'), sendFile);
+router.post('/:id/files', protect, upload.chatFile.single('file'), sendFile);
 
 module.exports = router; 

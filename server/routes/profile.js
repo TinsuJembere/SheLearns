@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { getProfile, updateProfile, uploadAvatar, getAllUsers } = require('../controllers/profileController');
 const { protect } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware'); 
+const upload = require('../middleware/uploadMiddleware');
 
 router.get('/', protect, getProfile);
 router.put('/', protect, updateProfile);
-router.post('/upload-avatar', protect, upload.single('avatar'), uploadAvatar);
+router.post('/upload-avatar', protect, upload.avatar.single('avatar'), uploadAvatar);
 router.get('/users', protect, getAllUsers);
 
 router.get('/users/:userId', protect, (req, res) => {

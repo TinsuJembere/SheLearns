@@ -46,12 +46,22 @@ exports.uploadAvatar = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    user.avatar = req.file.path; // ✅ Cloudinary-hosted image URL
+    // Check if we have the Cloudinary URL
+    if (!req.file.path) {
+      console.error('Cloudinary URL not found in upload response:', req.file);
+      return res.status(500).json({ message: 'Error getting uploaded file URL.' });
+    }
+
+    user.avatar = req.file.path; // Cloudinary-hosted image URL
     await user.save();
 
     res.json({ url: req.file.path });
   } catch (err) {
-    res.status(500).json({ message: 'Error uploading avatar.' });
+    console.error('Avatar upload error:', err);
+    res.status(500).json({ 
+      message: 'Error uploading avatar.',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
