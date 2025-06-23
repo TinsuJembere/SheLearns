@@ -14,20 +14,19 @@ exports.updateProfile = async (req, res) => {
   try {
     const updates = req.body;
     delete updates.password; // Prevent password update here
-    // Only allow mentor fields if user is mentor
+
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found.' });
+
     if (user.role === 'mentor') {
-      // Allow all fields
       Object.assign(user, updates);
     } else if (user.role === 'student') {
-      // Allow avatar, bio, skills, and languages
       if ('avatar' in updates) user.avatar = updates.avatar;
       if ('bio' in updates) user.bio = updates.bio;
       if ('skills' in updates) user.skills = updates.skills;
       if ('languages' in updates) user.languages = updates.languages;
-      // Ignore mentor-only fields
     }
+
     await user.save();
     const updatedUser = await User.findById(user._id).select('-password');
     res.json(updatedUser);
@@ -36,12 +35,24 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-exports.uploadAvatar = (req, res) => {
+exports.uploadAvatar = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded.' });
   }
-  const url = `https://shelearns.onrender.com/public/avatars/${req.file.filename}`;
-  res.json({ url });
+
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.avatar = req.file.path; // ✅ Cloudinary-hosted image URL
+    await user.save();
+
+    res.json({ url: req.file.path });
+  } catch (err) {
+    res.status(500).json({ message: 'Error uploading avatar.' });
+  }
 };
 
 exports.getAllUsers = async (req, res) => {
@@ -51,4 +62,4 @@ exports.getAllUsers = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
   }
-}; 
+};

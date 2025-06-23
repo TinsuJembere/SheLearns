@@ -131,8 +131,7 @@ exports.sendFile = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded.' });
     }
     
-    const { originalname, mimetype, filename } = req.file;
-    const fileUrl = `/public/uploads/chat_files/${filename}`;
+    const { originalname, mimetype, path: fileUrl } = req.file; // Cloudinary URL
     
     const message = new Message({
       chat: chatId,

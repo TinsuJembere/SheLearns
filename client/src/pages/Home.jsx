@@ -221,7 +221,7 @@ function Home() {
           </div>
         </div>
         {message && <p className="text-center text-sm mt-4">{message}</p>}
-        <div className="text-center text-gray-400 text-xs mt-6">© 2023 SheLearns</div>
+        <div className="text-center text-gray-400 text-xs mt-6">© 2025 SheLearns</div>
       </footer>
     </div>
   );
