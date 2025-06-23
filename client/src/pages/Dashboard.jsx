@@ -3,7 +3,7 @@ import { FiChevronRight, FiUser, FiMessageCircle, FiBookOpen, FiSettings, FiEdit
 
 const user = {
   name: 'Amina',
-  avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+  avatar: '/avatar.jpg',
 };
 
 const stats = [

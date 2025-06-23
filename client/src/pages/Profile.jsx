@@ -132,7 +132,7 @@ function Profile() {
               {isEditing ? (
                 <>
                   <img
-                    src={form.avatar || 'https://randomuser.me/api/portraits/men/32.jpg'}
+                    src={form.avatar || '/avatar.jpg'}
                     alt={form.name}
                     className="w-24 h-24 rounded-full object-cover border-4 border-yellow-100 cursor-pointer"
                     onClick={handleAvatarClick}
@@ -161,7 +161,7 @@ function Profile() {
                 </>
               ) : (
                 <img
-                  src={user.avatar || 'https://randomuser.me/api/portraits/men/32.jpg'}
+                  src={user.avatar || '/avatar.jpg'}
                   alt={user.name}
                   className="w-24 h-24 rounded-full object-cover border-4 border-yellow-100"
                 />

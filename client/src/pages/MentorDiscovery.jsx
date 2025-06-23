@@ -164,7 +164,7 @@ function MentorDiscovery() {
               )}
               <div className="flex items-center gap-4 mb-4">
                 <img
-                  src={profile.avatar || 'https://randomuser.me/api/portraits/men/32.jpg'}
+                  src={profile.avatar || '/avatar.jpg'}
                   alt={profile.name}
                   className="w-14 h-14 rounded-full object-cover border-4 border-yellow-100"
                 />

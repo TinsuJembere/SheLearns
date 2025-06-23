@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import ChatWindow from '../components/ChatWindow';
 import { FiMail, FiLinkedin, FiGithub, FiSearch, FiBookmark } from 'react-icons/fi';
 import axios from 'axios';
@@ -34,8 +35,13 @@ export default function Chats() {
   }, [selectedChatId]);
 
   useEffect(() => {
-    fetchConvs();
-  }, [fetchConvs]);
+    if (user) {
+      fetchConvs();
+    } else {
+      setLoadingConvs(false);
+      setConversations([]);
+    }
+  }, [user, fetchConvs]);
 
   // Fetch users for search
   useEffect(() => {
@@ -109,7 +115,7 @@ export default function Chats() {
     return {
       _id: chat._id,
       name: isSelfChat ? 'Saved Messages' : other?.name || 'Unknown',
-      avatar: isSelfChat ? (user.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg') : (other?.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg'),
+      avatar: isSelfChat ? (user.avatar || '/avatar.jpg') : (other?.avatar || '/avatar.jpg'),
       role: isSelfChat ? 'You' : (other?.role || ''),
       lastMessage: chat.lastMessage || (chat.messages?.[0]?.fileUrl ? `File: ${chat.messages[0].fileName}` : chat.messages?.[0]?.text) || 'No messages yet',
       time: new Date(chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -226,11 +232,12 @@ export default function Chats() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search users..."
-                className="w-full border rounded px-3 py-2 pr-8"
+                placeholder={user ? "Search users..." : "Log in to search for users"}
+                className="w-full border rounded px-3 py-2 pr-8 disabled:bg-gray-100"
+                disabled={!user}
               />
               <FiSearch className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" />
-              {searching && searchResults.length > 0 && (
+              {user && searching && searchResults.length > 0 && (
                 <ul className="absolute z-10 left-0 right-0 bg-white border rounded shadow mt-1 max-h-56 overflow-y-auto">
                   {searchResults.map((u) => (
                     <li
@@ -248,8 +255,16 @@ export default function Chats() {
             </div>
             {loadingConvs ? (
               <div className="text-gray-400 text-center flex-1 flex items-center justify-center">Loading...</div>
-            ) : error ? (
-              <div className="text-red-500 text-center flex-1 flex items-center justify-center">{error} login or sign up first</div>
+            ) : !user ? (
+              <div className="text-gray-500 text-center flex-1 flex items-center justify-center italic">
+                <p>
+                  <Link to="/login" className="underline text-yellow-600 hover:text-yellow-800">Log in</Link> to see your conversations.
+                </p>
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-gray-400 text-center flex-1 flex items-center justify-center italic">
+                No conversations yet. Start one by searching for a user.
+              </div>
             ) : (
               <ul className="flex-1 overflow-y-auto divide-y divide-gray-50">
                 {sidebarConvs.map((conv) => (
@@ -282,24 +297,34 @@ export default function Chats() {
           </aside>
           {/* Main Chat Area */}
           <section className="flex-1 flex flex-col bg-white rounded-xl border border-gray-100 shadow min-h-[400px]">
-            {loadingMsgs ? (
-              <div className="text-gray-400 flex-1 flex items-center justify-center">Loading messages...</div>
+            {user ? (
+              selectedChatId && chatWindowData ? (
+                <ChatWindow
+                  chatId={selectedChatId}
+                  loading={loadingMsgs}
+                  {...chatWindowData}
+                  onAddNewMessage={handleAddNewMessage}
+                  onUpdateMessage={handleUpdateMessage}
+                  onDeleteMessage={handleDeleteMessage}
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-gray-500">
+                  <p>Select a conversation to start chatting.</p>
+                </div>
+              )
             ) : (
-              <ChatWindow 
-                conversation={chatWindowData} 
-                chatId={selectedChatId} 
-                onMessageSent={handleAddNewMessage} 
-                onMessageUpdated={handleUpdateMessage}
-                onMessageDeleted={handleDeleteMessage}
-                currentUser={user} 
-              />
+              <div className="flex-1 flex items-center justify-center text-gray-500">
+                <p>
+                  <Link to="/login" className="underline text-yellow-600 hover:text-yellow-800">Log in</Link> to view your chats.
+                </p>
+              </div>
             )}
           </section>
           {/* Profile Panel: Show other participant */}
           <aside className="w-72 bg-white rounded-xl border border-gray-100 shadow flex flex-col items-center p-6 min-h-[400px]">
             {other ? (
               <>
-                <img src={isSelfChat ? (user.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg') : (other.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg')} alt={isSelfChat ? 'You' : other.name} className="w-20 h-20 rounded-full object-cover mb-3" />
+                <img src={isSelfChat ? (user.avatar || '/avatar.jpg') : (other.avatar || '/avatar.jpg')} alt={isSelfChat ? 'You' : other.name} className="w-20 h-20 rounded-full object-cover mb-3" />
                 <div className="font-bold text-lg text-gray-900 mb-1">{isSelfChat ? 'Saved Messages' : other.name}</div>
                 <div className="text-xs text-yellow-600 font-semibold mb-2">{isSelfChat ? 'You' : other.role}</div>
                 <div className="text-sm text-gray-600 mb-4 text-center">{isSelfChat ? user.bio : (other.bio || '')}</div>

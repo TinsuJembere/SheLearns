@@ -2,7 +2,7 @@ import { FiChevronRight, FiUsers, FiFileText, FiSettings, FiUserCheck, FiUserX, 
 
 const admin = {
   name: 'Admin User',
-  avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+  avatar: '/avatar.jpg',
 };
 
 const stats = [

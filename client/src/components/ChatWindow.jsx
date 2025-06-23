@@ -137,8 +137,8 @@ export default function ChatWindow({ conversation, chatId, onMessageSent, onMess
               const isSentByCurrentUser = currentUser && senderId === currentUser._id;
               
               const avatarUrl = isSentByCurrentUser 
-                ? (currentUser?.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg')
-                : (conversation?.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg');
+                ? (currentUser?.avatar || '/avatar.jpg')
+                : (conversation?.avatar || '/avatar.jpg');
               
               // Don't render if message has no content
               if (!msg.text && !msg.fileUrl) {
