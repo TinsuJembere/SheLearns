@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import ChatWindow from '../components/ChatWindow';
-import { FiMail, FiLinkedin, FiGithub, FiSearch, FiBookmark } from 'react-icons/fi';
+import { FiMail, FiLinkedin, FiGithub, FiSearch, FiBookmark, FiArrowLeft } from 'react-icons/fi';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,53 +18,84 @@ export default function Chats() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
-  const fetchConvs = useCallback(async () => {
+  // --- State for Mobile View Management ---
+  // Controls which of the three main panels is visible on mobile ('conversations', 'chat', or 'profile')
+  const [activePanel, setActivePanel] = useState('conversations');
+
+  // Effect to set initial selected chat and panel if conversations exist
+  useEffect(() => {
+    if (user) {
+      const fetchConvs = async () => {
+        setLoadingConvs(true);
+        setError(null);
+        try {
+          const res = await axios.get('/api/chats');
+          setConversations(res.data);
+          // If no chat is selected and conversations exist, select the first one
+          if (res.data.length > 0 && !selectedChatId) {
+            setSelectedChatId(res.data[0]._id);
+            // On initial load, keep conversations panel active on mobile
+            // If you want to auto-open the first chat, change this to setActivePanel('chat');
+          }
+        } catch (err) {
+          setError('Failed to load conversations');
+        } finally {
+          setLoadingConvs(false);
+        }
+      };
+      fetchConvs();
+    } else {
+      setLoadingConvs(false);
+      setConversations([]);
+      setSelectedChatId(null); // Clear selected chat if user logs out
+      setActivePanel('conversations'); // Reset panel view
+    }
+  }, [user]); // Only re-run when user changes
+
+  // Callback to refetch conversations (used after starting a new chat)
+  const refetchConversations = useCallback(async () => {
     setLoadingConvs(true);
     setError(null);
     try {
       const res = await axios.get('/api/chats');
       setConversations(res.data);
-      if (res.data.length > 0 && !selectedChatId) {
-        setSelectedChatId(res.data[0]._id);
-      }
     } catch (err) {
       setError('Failed to load conversations');
     } finally {
       setLoadingConvs(false);
     }
-  }, [selectedChatId]);
+  }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchConvs();
-    } else {
-      setLoadingConvs(false);
-      setConversations([]);
-    }
-  }, [user, fetchConvs]);
 
-  // Fetch users for search
+  // Fetch users for search (only once on component mount)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await axios.get('/api/profile/users');
         setUsers(res.data);
       } catch (err) {
-        // ignore
+        console.error("Failed to fetch users for search:", err);
+        // Handle error gracefully, e.g., set an error state
       }
     };
     fetchUsers();
   }, []);
 
   const handleSelectChat = async (chatId) => {
-    if (selectedChatId === chatId) return;
-    
+    if (selectedChatId === chatId) {
+      // If same chat is clicked, and we're on mobile, and the profile panel is open, go back to chat
+      if (activePanel === 'profile') {
+        setActivePanel('chat');
+      }
+      return; // No need to re-fetch if already selected
+    }
+
     setSelectedChatId(chatId);
-    
+    setActivePanel('chat'); // Switch to chat view on mobile
     // Mark as read and update UI instantly
     try {
       await axios.post(`/api/chats/${chatId}/read`);
-      setConversations(prev => 
+      setConversations(prev =>
         prev.map(c => c._id === chatId ? { ...c, unreadCount: 0 } : c)
       );
     } catch (err) {
@@ -74,7 +105,10 @@ export default function Chats() {
 
   // Fetch messages for selected chat
   useEffect(() => {
-    if (!selectedChatId) return;
+    if (!selectedChatId) {
+      setMessages([]); // Clear messages if no chat is selected
+      return;
+    }
     const fetchMsgs = async () => {
       setLoadingMsgs(true);
       setError(null);
@@ -88,34 +122,35 @@ export default function Chats() {
       }
     };
     fetchMsgs();
-  }, [selectedChatId]);
+  }, [selectedChatId]); // Re-fetch messages when selectedChatId changes
 
   // Helper: get the other participant (not the logged-in user)
-  const getOtherParticipant = (chat) => {
+  const getOtherParticipant = useCallback((chat) => {
     if (!chat || !user) return null;
-    
-    const isOldSelfChat = chat.participants.length === 2 && chat.participants[0]?._id === user._id && chat.participants[1]?._id === user._id;
-    const isNewSelfChat = chat.participants.length === 1 && chat.participants[0]?._id === user._id;
 
-    if (isOldSelfChat || isNewSelfChat) {
+    const isSelfChat =
+      (chat.participants.length === 1 && chat.participants[0]?._id === user._id) ||
+      (chat.participants.length === 2 && chat.participants[0]?._id === user._id && chat.participants[1]?._id === user._id);
+
+    if (isSelfChat) {
       return chat.participants[0]; // For any self-chat, the participant is the user.
     }
-    
+
     // For a normal 2-person chat
     return chat.participants.find((p) => p._id !== user._id);
-  };
+  }, [user]);
 
   // Prepare sidebar conversations
   const sidebarConvs = conversations.map((chat) => {
     const isSelfChat =
-      (chat.participants.length === 1 && chat.participants[0]?._id === user._id) ||
-      (chat.participants.length === 2 && chat.participants[0]?._id === user._id && chat.participants[1]?._id === user._id);
+      (chat.participants.length === 1 && chat.participants[0]?._id === user?._id) ||
+      (chat.participants.length === 2 && chat.participants[0]?._id === user?._id && chat.participants[1]?._id === user?._id);
     const other = getOtherParticipant(chat);
-    
+
     return {
       _id: chat._id,
       name: isSelfChat ? 'Saved Messages' : other?.name || 'Unknown',
-      avatar: isSelfChat ? (user.avatar || '/avatar.jpg') : (other?.avatar || '/avatar.jpg'),
+      avatar: isSelfChat ? (user?.avatar || '/avatar.jpg') : (other?.avatar || '/avatar.jpg'),
       role: isSelfChat ? 'You' : (other?.role || ''),
       lastMessage: chat.lastMessage || (chat.messages?.[0]?.fileUrl ? `File: ${chat.messages[0].fileName}` : chat.messages?.[0]?.text) || 'No messages yet',
       time: new Date(chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -126,22 +161,21 @@ export default function Chats() {
 
   // Prepare selected conversation for ChatWindow
   const selectedChat = conversations.find((c) => c._id === selectedChatId);
-  const isSelfChat =
-    selectedChat &&
-    ((selectedChat.participants.length === 1 && selectedChat.participants[0]?._id === user?._id) ||
-      (selectedChat.participants.length === 2 &&
-        selectedChat.participants[0]?._id === user?._id &&
-        selectedChat.participants[1]?._id === user?._id));
+  const isSelfChat = selectedChat ? (
+    (selectedChat.participants.length === 1 && selectedChat.participants[0]?._id === user?._id) ||
+    (selectedChat.participants.length === 2 && selectedChat.participants[0]?._id === user?._id && selectedChat.participants[1]?._id === user?._id)
+  ) : false;
   const other = getOtherParticipant(selectedChat);
+
   const chatWindowData = selectedChat
     ? {
         name: isSelfChat ? 'Saved Messages' : (other?.name || 'Unknown'),
-        avatar: isSelfChat ? (user.avatar || '/avatar.jpg') : (other?.avatar || '/avatar'),
+        avatar: isSelfChat ? (user?.avatar || '/avatar.jpg') : (other?.avatar || '/avatar.jpg'), // Ensure avatar is correct
         role: isSelfChat ? 'You' : (other?.role || ''),
         messages: messages.map((msg) => {
           const senderId = msg.sender?._id || msg.sender;
-          const isSentByCurrentUser = senderId === user._id;
-          
+          const isSentByCurrentUser = senderId === user?._id;
+
           return {
             ...msg,
             id: msg._id,
@@ -174,12 +208,11 @@ export default function Chats() {
     try {
       const res = await axios.post('/api/chats', { userId });
       const chat = res.data;
-      // Refetch conversations to get fully populated participants
-      const convRes = await axios.get('/api/chats');
-      setConversations(convRes.data);
+      await refetchConversations(); // Refetch conversations to get fully populated participants
       setSelectedChatId(chat._id);
       setSearch('');
       setSearchResults([]);
+      setActivePanel('chat'); // Switch to chat view on mobile
     } catch (err) {
       alert(err.response?.data?.message || 'Could not start chat');
     }
@@ -196,7 +229,7 @@ export default function Chats() {
       setMessages((prevMessages) => [...prevMessages, messageWithTimestamp]);
     }
     // Also, update the lastMessage in the conversations list
-    setConversations(prevConvs => 
+    setConversations(prevConvs =>
       prevConvs.map(conv => {
         if (conv._id === newMessage.chat) {
           return {
@@ -213,18 +246,26 @@ export default function Chats() {
   const handleUpdateMessage = (updatedMessage) => {
     setMessages(prev => prev.map(m => m._id === updatedMessage._id ? updatedMessage : m));
   };
-  
+
   const handleDeleteMessage = (messageId) => {
     setMessages(prev => prev.filter(m => m._id !== messageId));
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Main Content */}
+      {/* Main Content Area - max width and central alignment */}
       <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 py-6 gap-6">
-        <div className="flex flex-1 gap-6">
-          {/* Sidebar: Conversations */}
-          <aside className="w-72 bg-white rounded-xl border border-gray-100 shadow flex flex-col p-4 gap-2 h-[70vh] min-h-[400px]">
+
+        {/* This div holds the three main panels (Conversations, Chat, Profile) */}
+        {/* On mobile, it will effectively show one panel at a time, each taking full width. */}
+        {/* On desktop, it will flex into three columns. */}
+        {/* Changed h-[70vh] to flex-1 to allow it to fill available height and scroll if needed */}
+        <div className="flex flex-1 gap-6 min-h-[400px]">
+
+          {/* Sidebar: Conversations List */}
+          {/* On mobile: displayed if activePanel is 'conversations', takes full width */}
+          {/* On desktop (md+): always displayed, fixed width w-72 */}
+          <aside className={`${activePanel === 'conversations' ? 'flex w-full' : 'hidden'} md:flex md:w-72 bg-white rounded-xl border border-gray-100 shadow flex-col p-4 gap-2`}>
             <h2 className="font-semibold text-lg mb-2">Conversations</h2>
             {/* Search bar */}
             <div className="mb-3 relative">
@@ -238,7 +279,7 @@ export default function Chats() {
               />
               <FiSearch className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" />
               {user && searching && searchResults.length > 0 && (
-                <ul className="absolute z-10 left-0 right-0 bg-white border rounded shadow mt-1 max-h-56 overflow-y-auto">
+                <ul className="absolute z-20 left-0 right-0 bg-white border rounded shadow mt-1 max-h-56 overflow-y-auto">
                   {searchResults.map((u) => (
                     <li
                       key={u._id}
@@ -256,7 +297,7 @@ export default function Chats() {
             {loadingConvs ? (
               <div className="text-gray-400 text-center flex-1 flex items-center justify-center">Loading...</div>
             ) : !user ? (
-              <div className="text-gray-500 text-center flex-1 flex items-center justify-center italic">
+              <div className="text-gray-500 text-center flex-1 flex items-center justify-center italic p-4"> {/* Added p-4 for padding to prevent overflow */}
                 <p>
                   <Link to="/login" className="underline text-yellow-600 hover:text-yellow-800">Log in</Link> to see your conversations.
                 </p>
@@ -295,8 +336,37 @@ export default function Chats() {
               </ul>
             )}
           </aside>
+
           {/* Main Chat Area */}
-          <section className="flex-1 flex flex-col bg-white rounded-xl border border-gray-100 shadow min-h-[400px]">
+          {/* On mobile: displayed if activePanel is 'chat', takes full width */}
+          {/* On desktop (md+): always displayed, takes remaining flexible space */}
+          <section className={`${activePanel === 'chat' ? 'flex flex-1 w-full' : 'hidden'} md:flex md:flex-1 flex-col bg-white rounded-xl border border-gray-100 shadow min-h-[400px]`}>
+            {/* Mobile Chat Header with Back Button and Profile Picture (clickable) */}
+            <div className="md:hidden flex items-center justify-between p-4 border-b">
+              <button onClick={() => setActivePanel('conversations')} className="text-gray-600 hover:text-yellow-600 mr-3">
+                <FiArrowLeft size={24} />
+              </button>
+              {chatWindowData && (
+                <>
+                  {/* The single profile picture that is now clickable */}
+                  {selectedChatId && other && !isSelfChat ? (
+                    <button
+                      onClick={() => setActivePanel('profile')}
+                      className="flex-1 flex items-center gap-2 p-1 -ml-1 rounded-full hover:bg-gray-100 transition-colors" // Added padding and negative margin for better click area/alignment
+                    >
+                      <img src={chatWindowData.avatar} alt={chatWindowData.name} className="w-8 h-8 rounded-full object-cover" />
+                      <span className="font-semibold text-gray-900">{chatWindowData.name}</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 flex items-center gap-2">
+                      <img src={chatWindowData.avatar} alt={chatWindowData.name} className="w-8 h-8 rounded-full object-cover" />
+                      <span className="font-semibold text-gray-900">{chatWindowData.name}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {user ? (
               selectedChatId && chatWindowData ? (
                 <ChatWindow
@@ -308,35 +378,46 @@ export default function Chats() {
                   onDeleteMessage={handleDeleteMessage}
                 />
               ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="flex-1 flex items-center justify-center text-gray-500 p-4"> {/* Added p-4 */}
                   <p>Select a conversation to start chatting.</p>
                 </div>
               )
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
+              <div className="flex-1 flex items-center justify-center text-gray-500 p-4"> {/* Added p-4 */}
                 <p>
                   <Link to="/login" className="underline text-yellow-600 hover:text-yellow-800">Log in</Link> to view your chats.
                 </p>
               </div>
             )}
           </section>
-          {/* Profile Panel: Show other participant */}
-          <aside className="w-72 bg-white rounded-xl border border-gray-100 shadow flex flex-col items-center p-6 min-h-[400px]">
+
+          {/* Profile Panel: Show other participant details */}
+          {/* On mobile: displayed if activePanel is 'profile', takes full width */}
+          {/* On desktop (md+): always displayed, fixed width w-72 */}
+          <aside className={`${activePanel === 'profile' ? 'flex w-full' : 'hidden'} md:flex md:w-72 bg-white rounded-xl border border-gray-100 shadow flex-col items-center p-6 min-h-[400px]`}>
+            {/* Mobile Profile Panel Header with Back Button */}
+            <div className="md:hidden flex items-center w-full pb-4 border-b mb-4">
+              <button onClick={() => setActivePanel('chat')} className="text-gray-600 hover:text-yellow-600 mr-3">
+                <FiArrowLeft size={24} />
+              </button>
+              <h2 className="font-semibold text-lg">Profile Details</h2>
+            </div>
+
             {other ? (
               <>
-                <img src={isSelfChat ? (user.avatar || '/avatar.jpg') : (other.avatar || '/avatar.jpg')} alt={isSelfChat ? 'You' : other.name} className="w-20 h-20 rounded-full object-cover mb-3" />
+                <img src={isSelfChat ? (user?.avatar || '/avatar.jpg') : (other.avatar || '/avatar.jpg')} alt={isSelfChat ? 'You' : other.name} className="w-20 h-20 rounded-full object-cover mb-3" />
                 <div className="font-bold text-lg text-gray-900 mb-1">{isSelfChat ? 'Saved Messages' : other.name}</div>
                 <div className="text-xs text-yellow-600 font-semibold mb-2">{isSelfChat ? 'You' : other.role}</div>
-                <div className="text-sm text-gray-600 mb-4 text-center">{isSelfChat ? user.bio : (other.bio || '')}</div>
+                <div className="text-sm text-gray-600 mb-4 text-center">{isSelfChat ? user?.bio : (other.bio || 'No bio available.')}</div>
                 <div className="flex gap-3 mb-4">
-                  <a href={`mailto:${isSelfChat ? user.email : other.email}`} className="text-gray-400 hover:text-yellow-500" title="Email"><FiMail size={20} /></a>
-                  <a href={(isSelfChat ? user.linkedin : other.linkedin) || '#'} className="text-gray-400 hover:text-yellow-500" title="LinkedIn"><FiLinkedin size={20} /></a>
-                  <a href={(isSelfChat ? user.github : other.github) || '#'} className="text-gray-400 hover:text-yellow-500" title="GitHub"><FiGithub size={20} /></a>
+                  <a href={`mailto:${isSelfChat ? user?.email : other.email}`} className="text-gray-400 hover:text-yellow-500" title="Email"><FiMail size={20} /></a>
+                  <a href={(isSelfChat ? user?.linkedin : other.linkedin) || '#'} className="text-gray-400 hover:text-yellow-500" title="LinkedIn" target="_blank" rel="noopener noreferrer"><FiLinkedin size={20} /></a>
+                  <a href={(isSelfChat ? user?.github : other.github) || '#'} className="text-gray-400 hover:text-yellow-500" title="GitHub" target="_blank" rel="noopener noreferrer"><FiGithub size={20} /></a>
                 </div>
                 <div className="w-full">
                   <div className="font-semibold text-xs text-gray-500 mb-1">Skills</div>
                   <div className="flex flex-wrap gap-2">
-                    {((isSelfChat ? user.skills : other.skills) || ['Mentorship']).map((skill) => (
+                    {((isSelfChat ? user?.skills : other.skills) || ['Mentorship']).map((skill) => (
                       <span key={skill} className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">{skill}</span>
                     ))}
                   </div>
@@ -368,4 +449,4 @@ export default function Chats() {
       </footer>
     </div>
   );
-} 
+}

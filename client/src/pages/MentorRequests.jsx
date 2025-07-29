@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { FiArrowLeft, FiMenu } from 'react-icons/fi'; // Import icons for mobile navigation
 
 function MentorRequests() {
   const { user } = useAuth();
@@ -8,38 +9,108 @@ function MentorRequests() {
   const [selected, setSelected] = useState(null);
   const [requests, setRequests] = useState([]);
   const [studentProfile, setStudentProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // --- State for Mobile View Management ---
+  const [activePanel, setActivePanel] = useState('list'); // 'list' or 'details'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile sidebar
+
+  // Helper to get initials (similar to previous component)
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    return (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+  };
+
+  // Fetch mentorship requests
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('/api/mentorship/requests');
+      setRequests(response.data);
+      if (response.data.length > 0) {
+        setSelected(response.data[0]);
+        setStudentProfile(response.data[0].student);
+      } else {
+        setSelected(null);
+        setStudentProfile(null);
+      }
+    } catch (err) {
+      console.error('Error fetching mentorship requests:', err);
+      setError('Failed to load mentorship requests.');
+    } finally {
+      setLoading(false);
+    }
+  }, []); // No dependencies as it fetches initial data
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const response = await axios.get('/api/mentorship/requests');
-        setRequests(response.data);
-        if (response.data.length > 0) {
-          setSelected(response.data[0]);
-          // Set student profile directly from the request
-          setStudentProfile(response.data[0].student);
-        }
-      } catch (error) {
-        console.error('Error fetching mentorship requests:', error);
-      }
-    };
-
-    fetchRequests();
-  }, []);
+    if (user) { // Only fetch if user is logged in
+      fetchRequests();
+    } else {
+      setLoading(false); // If no user, stop loading and clear data
+      setRequests([]);
+      setSelected(null);
+      setStudentProfile(null);
+    }
+  }, [user, fetchRequests]); // Depend on user and fetchRequests
 
   // Update student profile when selected request changes
   useEffect(() => {
     if (selected?.student) {
       setStudentProfile(selected.student);
+    } else {
+      setStudentProfile(null); // Clear student profile if no selected request or student
     }
   }, [selected]);
 
+  // Handle selecting a request in the list
+  const handleSelectRequest = (req) => {
+    setSelected(req);
+    setActivePanel('details'); // Switch to details view on mobile
+  };
+
+  // Use the user object for mentor profile in the sidebar
+  const mentorProfile = user;
+
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
-      <div className="flex flex-1 max-w-7xl mx-auto w-full pt-6 pb-2 px-4 gap-6">
-        {/* Sidebar */}
-        <aside className="w-56 flex-shrink-0 hidden md:flex flex-col gap-2 pr-2">
+      {/* Mobile Header for Sidebar Toggle */}
+      <header className="md:hidden sticky top-0 bg-white shadow-sm z-10 p-4 flex items-center justify-between border-b">
+        <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600 hover:text-yellow-600">
+          <FiMenu size={24} />
+        </button>
+        <span className="font-bold text-lg text-gray-800">SheLearns</span>
+        {/* You can add a user avatar/profile link here for mobile */}
+        {user && (
+           <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-sm font-bold text-yellow-600 overflow-hidden">
+             {user.avatar ? <img src={user.avatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : getInitials(user.name)}
+           </div>
+        )}
+      </header>
+
+      <div className="flex flex-1 max-w-7xl mx-auto w-full pt-6 pb-2 px-4 gap-6 relative"> {/* Added relative for sidebar positioning */}
+        {/* Sidebar - Hidden on small, shown on md+ */}
+        {/* Added overlay for mobile when sidebar is open */}
+        <div
+          className={`${isSidebarOpen ? 'fixed inset-0 bg-black bg-opacity-50 z-20' : 'hidden'} md:hidden`}
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+        <aside className={`
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          fixed inset-y-0 left-0 w-64 bg-white z-30 shadow-lg p-4 flex flex-col gap-2 transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:w-56 md:flex-shrink-0 md:shadow-none md:border-r md:p-0 md:pr-2 md:bg-transparent
+          lg:w-64 lg:pr-2 lg:bg-transparent
+        `}>
+          {/* Close button for mobile sidebar */}
+          <div className="md:hidden flex justify-end mb-4">
+            <button onClick={() => setIsSidebarOpen(false)} className="text-gray-600 hover:text-yellow-600">
+              <FiArrowLeft size={24} />
+            </button>
+          </div>
           <nav className="flex-1 flex flex-col gap-1">
+            {/* Note: In a real app, these should be <Link> components from react-router-dom */}
             <a href="#" className="px-4 py-2 rounded font-medium text-gray-700 hover:bg-yellow-50 flex items-center gap-2"><span>🏠</span>Dashboard</a>
             <a href="#" className="px-4 py-2 rounded font-medium text-gray-700 hover:bg-yellow-50 flex items-center gap-2"><span>👤</span>Profile</a>
             <a href="#" className="px-4 py-2 rounded font-medium text-gray-700 hover:bg-yellow-50 flex items-center gap-2"><span>💬</span>Chat</a>
@@ -47,93 +118,124 @@ function MentorRequests() {
             <a href="#" className="px-4 py-2 rounded font-semibold bg-yellow-100 text-yellow-600 flex items-center gap-2"><span>🤝</span>Mentorship Requests</a>
             <a href="#" className="px-4 py-2 rounded font-medium text-gray-700 hover:bg-yellow-50 flex items-center gap-2"><span>⚙️</span>Settings</a>
           </nav>
-          <div className="mt-auto flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-100 shadow">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-lg font-bold text-yellow-600">
-              {mentorProfile.avatar ? <img src={mentorProfile.avatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : 'MS'}
+          {mentorProfile && (
+            <div className="mt-auto flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-100 shadow">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-lg font-bold text-yellow-600 overflow-hidden">
+                {mentorProfile.avatar ? <img src={mentorProfile.avatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : getInitials(mentorProfile.name)}
+              </div>
+              <div>
+                <div className="font-semibold text-gray-800 text-sm">{mentorProfile.name}</div>
+                <div className="text-xs text-gray-500">{mentorProfile.role}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold text-gray-800 text-sm">{mentorProfile.name}</div>
-              <div className="text-xs text-gray-500">{mentorProfile.role}</div>
-            </div>
-          </div>
+          )}
         </aside>
-        {/* Main Content */}
+
+        {/* Main Content Area */}
         <main className="flex-1 flex flex-col md:flex-row gap-6">
-          {/* Requests/Message List */}
-          <section className="w-full md:w-96 bg-white rounded-xl shadow border border-gray-100 flex flex-col">
+          {/* Requests/Message List Panel */}
+          <section className={`
+            ${activePanel === 'list' ? 'flex w-full' : 'hidden'}
+            md:flex md:w-96 bg-white rounded-xl shadow border border-gray-100 flex-col
+          `}>
             <div className="flex border-b">
               <button
                 className={`flex-1 px-4 py-3 font-semibold text-sm rounded-t transition ${tab === 'requests' ? 'text-yellow-600 border-b-2 border-yellow-400 bg-yellow-50' : 'text-gray-700 border-b-2 border-transparent hover:bg-yellow-50'}`}
                 onClick={() => setTab('requests')}
               >
-                Requests (2)
+                Requests ({requests.filter(r => r.status === 'pending').length}) {/* Dynamically show count */}
               </button>
               <button
                 className={`flex-1 px-4 py-3 font-semibold text-sm rounded-t transition ${tab === 'messages' ? 'text-yellow-600 border-b-2 border-yellow-400 bg-yellow-50' : 'text-gray-700 border-b-2 border-transparent hover:bg-yellow-50'}`}
                 onClick={() => setTab('messages')}
               >
-                Messages (0)
+                Messages (0) {/* This is still hardcoded */}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {mockRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className={`flex items-start gap-3 px-4 py-3 border-b cursor-pointer transition ${selected.id === req.id ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}
-                  onClick={() => setSelected(req)}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${req.unread ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-500'}`}>
-                    {req.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 text-sm truncate">{req.name}</span>
-                      {req.unread && <span className="w-2 h-2 bg-yellow-400 rounded-full" />}
-                      <span className="text-xs text-gray-400 ml-auto">{req.time}</span>
+            {loading ? (
+              <div className="text-center text-gray-400 flex-1 flex items-center justify-center">Loading requests...</div>
+            ) : error ? (
+              <div className="text-center text-red-500 flex-1 flex items-center justify-center p-4">{error}</div>
+            ) : requests.length === 0 ? (
+              <div className="text-center text-gray-500 flex-1 flex items-center justify-center italic p-4">
+                No mentorship requests found.
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {/* Filter requests based on 'tab' if you have messages, or a 'status' */}
+                {requests.map((req) => (
+                  <div
+                    key={req._id} // Changed to _id
+                    className={`flex items-start gap-3 px-4 py-3 border-b cursor-pointer transition ${selected?._id === req._id ? 'bg-yellow-50' : 'hover:bg-gray-50'}`} // Changed to _id
+                    onClick={() => handleSelectRequest(req)} // Use the new handler for mobile nav
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${req.unread ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-500'}`}>
+                      {req.student?.avatar ? <img src={req.student.avatar} alt={req.student.name} className="w-full h-full rounded-full object-cover" /> : getInitials(req.student?.name)}
                     </div>
-                    <div className="text-xs text-gray-600 truncate font-medium">{req.subject}</div>
-                    <div className="text-xs text-gray-500 truncate">{req.preview}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900 text-sm truncate">{req.student?.name}</span>
+                        {/* Assuming 'unread' status is part of the request object */}
+                        {req.status === 'pending' && <span className="w-2 h-2 bg-yellow-400 rounded-full" />}
+                        <span className="text-xs text-gray-400 ml-auto">{new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> {/* Use actual timestamp */}
+                      </div>
+                      <div className="text-xs text-gray-600 truncate font-medium">{req.subject || 'Mentorship Request'}</div>
+                      <div className="text-xs text-gray-500 truncate">{req.message || 'New request'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Detail Panel */}
+          <section className={`
+            ${activePanel === 'details' ? 'flex flex-1 w-full' : 'hidden'}
+            md:flex md:flex-1 bg-white rounded-xl shadow border border-gray-100 p-6 flex-col
+          `}>
+            {/* Mobile Header for Back Button */}
+            <div className="md:hidden flex items-center w-full pb-4 border-b mb-4">
+              <button onClick={() => setActivePanel('list')} className="text-gray-600 hover:text-yellow-600 mr-3">
+                <FiArrowLeft size={24} />
+              </button>
+              <h2 className="font-semibold text-lg">Request Details</h2>
+            </div>
+
+            {selected && studentProfile ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="relative w-24 h-24 rounded-full overflow-hidden">
+                    {studentProfile.avatar ? (
+                      <img src={studentProfile.avatar} alt="Student Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-yellow-100 flex items-center justify-center text-2xl font-bold text-yellow-600">
+                        {getInitials(studentProfile.name)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-lg text-gray-900">{studentProfile.name}</div>
+                    <div className="text-xs text-gray-500">{studentProfile.role || 'Student'}</div>
+                    <div className="text-xs text-gray-500">{studentProfile.email}</div> {/* Display email if available */}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-          {/* Detail Panel */}
-          <section className="flex-1 bg-white rounded-xl shadow border border-gray-100 p-6 flex flex-col">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative w-24 h-24 rounded-full overflow-hidden">
-                {studentProfile?.avatar ? (
-                  <img src={studentProfile.avatar} alt="Student Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-yellow-100 flex items-center justify-center text-2xl font-bold text-yellow-600">
-                    {selected?.initials || 'S'}
-                  </div>
-                )}
-              </div>
-              <div>
-                <div className="font-semibold text-lg text-gray-900">{selected?.name}</div>
-                <div className="text-xs text-gray-500">{studentProfile?.role || 'Student'}</div>
-              </div>
-            </div>
-            <div className="mb-2">
-              <span className="font-bold text-yellow-600">{selected?.subject}</span>
-              <button className="ml-2 text-xs text-gray-500 underline">Show More</button>
-            </div>
-            <div className="text-gray-700 text-sm mb-4 whitespace-pre-line">{selected?.message}</div>
-            <div className="text-xs text-gray-400 mb-4">2 minutes ago, {selected?.date}</div>
-            
-            {/* Student Profile Details */}
-            <div className="space-y-4">
-              {studentProfile && (
-                <>
+                <div className="mb-2">
+                  <span className="font-bold text-yellow-600">{selected.subject || 'Mentorship Request'}</span>
+                  {/* <button className="ml-2 text-xs text-gray-500 underline">Show More</button> */} {/* Removed "Show More" as it had no functionality */}
+                </div>
+                <div className="text-gray-700 text-sm mb-4 whitespace-pre-line flex-1 overflow-y-auto">{selected.message || 'No message provided.'}</div>
+                <div className="text-xs text-gray-400 mb-4">{new Date(selected.createdAt).toLocaleString()}</div> {/* Use actual timestamp */}
+
+                {/* Student Profile Details */}
+                <div className="space-y-4 pt-4 border-t border-gray-100">
                   <div className="space-y-2">
                     <h3 className="text-sm font-semibold text-gray-700">About</h3>
-                    <p className="text-sm text-gray-600">{studentProfile?.bio || 'No bio available'}</p>
+                    <p className="text-sm text-gray-600">{studentProfile.bio || 'No bio available'}</p>
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-sm font-semibold text-gray-700">Skills</h3>
                     <div className="flex flex-wrap gap-2">
-                      {studentProfile?.skills?.map((skill, index) => (
+                      {(studentProfile.skills || []).map((skill, index) => (
                         <span key={index} className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">
                           {skill}
                         </span>
@@ -143,22 +245,32 @@ function MentorRequests() {
                   <div className="space-y-2">
                     <h3 className="text-sm font-semibold text-gray-700">Languages</h3>
                     <div className="flex flex-wrap gap-2">
-                      {studentProfile?.languages?.map((lang, index) => (
-                        <span key={index} className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">
+                      {(studentProfile.languages || []).map((lang, index) => (
+                        <span key={index} className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full"> {/* Changed to gray-100 for languages */}
                           {lang}
                         </span>
                       ))}
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button className="flex-1 bg-gray-100 text-gray-700 font-semibold px-4 py-2 rounded hover:bg-gray-200 transition">Not right now</button>
-              <button className="flex-1 bg-yellow-400 text-white font-semibold px-4 py-2 rounded hover:bg-yellow-500 transition">Interested</button>
-            </div>
-            <button className="text-xs text-gray-400 underline self-start mt-4">Report</button>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  {selected.status === 'pending' ? (
+                    <>
+                      <button className="flex-1 bg-gray-100 text-gray-700 font-semibold px-4 py-2 rounded hover:bg-gray-200 transition">Decline</button>
+                      <button className="flex-1 bg-yellow-400 text-white font-semibold px-4 py-2 rounded hover:bg-yellow-500 transition">Accept</button>
+                    </>
+                  ) : (
+                    <span className="flex-1 text-center text-gray-600 font-semibold mt-4">
+                      Request {selected.status}
+                    </span>
+                  )}
+                </div>
+                {/* <button className="text-xs text-gray-400 underline self-start mt-4">Report</button> */} {/* Removed Report button as it had no functionality */}
+              </>
+            ) : (
+              <div className="text-gray-400 flex-1 flex items-center justify-center">Select a request to view details.</div>
+            )}
           </section>
         </main>
       </div>
@@ -184,4 +296,4 @@ function MentorRequests() {
   );
 }
 
-export default MentorRequests; 
+export default MentorRequests;
