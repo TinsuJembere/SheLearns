@@ -1,6 +1,6 @@
 # SheLearns - Women's Tech Learning Platform
 SheLearns is a comprehensive learning platform designed specifically for women in technology. It provides a supportive environment where women can learn, connect with mentors, engage in discussions, and grow their tech careers.
-![SheLearns Platform](client/public/shelearns.jpg)
+watch live on: 
 ## 🌟 Features
 ### 👩‍💻 For Learners
 - **AI Learning Companion**: Get instant help with coding questions and learning concepts
